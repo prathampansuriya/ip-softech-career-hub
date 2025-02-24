@@ -111,18 +111,20 @@ app.post('/generate-pdf', (req, res) => {
 
 app.get('/get-ads', async (req, res) => {
     try {
-        const userIp = requestIp.getClientIp(req);
+        let userIp = requestIp.getClientIp(req);
         console.log("User IP:", userIp);
 
-        const geo = geoip.lookup(userIp);
-        console.log("Geo Data:", geo);
-
-        if (!geo || !geo.city) {
-            return res.status(500).json({ error: 'Unable to retrieve location information.' });
+        if (!userIp || userIp === '127.0.0.1' || userIp === '::1') {
+            userIp = '8.8.8.8'; // Default for localhost
         }
 
-        const ads = await Ads.find({ targetCity: geo.city });
-        console.log("Ads Found:", ads);
+        const response = await Axios.get(`http://www.geoplugin.net/json.gp?ip=${userIp}`);
+        if (!response.data.geoplugin_city) {
+            return res.status(500).json({ error: 'Unable to retrieve location.' });
+        }
+
+        console.log("Location Data:", response.data);
+        const ads = await Ads.find({ targetCity: response.data.geoplugin_city });
 
         res.json(ads);
     } catch (error) {
@@ -130,6 +132,7 @@ app.get('/get-ads', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch ads.' });
     }
 });
+
 
 // New endpoint for latest 4 ads
 app.get('/get-latest-ads', async (req, res) => {
