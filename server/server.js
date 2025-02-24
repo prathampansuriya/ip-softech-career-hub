@@ -114,13 +114,15 @@ app.get('/get-ads', async (req, res) => {
         const userIp = requestIp.getClientIp(req);
         console.log("User IP:", userIp);
 
-        const response = await Axios.get(`http://www.geoplugin.net/json.gp?ip=${userIp}`);
-        if (!response.data.geoplugin_city) {
-            return res.status(500).json({ error: 'Unable to retrieve location.' });
+        const geo = geoip.lookup(userIp);
+        console.log("Geo Data:", geo);
+
+        if (!geo || !geo.city) {
+            return res.status(500).json({ error: 'Unable to retrieve location information.' });
         }
 
-        console.log("Location Data:", response.data);
-        const ads = await Ads.find({ targetCity: response.data.geoplugin_city });
+        const ads = await Ads.find({ targetCity: geo.city });
+        console.log("Ads Found:", ads);
 
         res.json(ads);
     } catch (error) {
@@ -133,24 +135,20 @@ app.get('/get-ads', async (req, res) => {
 app.get('/get-latest-ads', async (req, res) => {
     try {
         const userIp = requestIp.getClientIp(req);
-        console.log("User IP:", userIp);
+        const geo = geoip.lookup(userIp);
 
-        const response = await Axios.get(`http://www.geoplugin.net/json.gp?ip=${userIp}`);
-        if (!response.data.geoplugin_city) {
+        if (!geo || !geo.city) {
             return res.status(500).json({ error: 'Unable to retrieve location.' });
         }
 
-        console.log("Location Data:", response.data);
-
-        // Fetch the latest 4 ads sorted by creation date
-        const ads = await Ads.find({ targetCity: response.data.geoplugin_city })
+        // Get latest 4 ads sorted by creation date
+        const ads = await Ads.find({ targetCity: geo.city })
             .sort({ createdAt: -1 })
             .limit(4);
 
         res.json(ads);
     } catch (error) {
-        console.error("Error fetching latest ads:", error);
-        res.status(500).json({ error: 'Failed to fetch latest ads.' });
+        res.status(500).json({ error: 'Failed to fetch ads.' });
     }
 });
 
